@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>햄찌윤서 생일페이지 🎂</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- 0) 첫 화면(게이트) -->
+  <section id="gate" class="gate">
+    <div class="gate-card">
+      <h1 class="gate-title">오늘 생일인 햄찌🐹윤서 맞나요??</h1>
+      <p class="gate-sub">정답을 골라주세요</p>
+
+      <div class="gate-area" id="gateArea">
+        <button id="btnYes" class="btn yes">Yes 💖</button>
+        <button id="btnNo" class="btn no">No 🙃</button>
+      </div>
+
+      <p class="gate-hint" id="gateHint">No는 안돼요!!</p>
+    </div>
+  </section>
+
+  <!-- 1) 메인 페이지 -->
+  <main id="pageMain" class="main hidden">
+    <div class="bg"></div>
+
+    <header class="hero card hero-center">
+      <h2 class="hero-title center">생일축하해 우리 햄찌윤서 🐹🎊</h2>
+      <p class="hero-sub center">오늘 하루는 우리 윤서가 제일 행복해야 해</p>
+
+      <div class="photo-pile">
+        <img src="images/ham1.jpeg" class="pile p1">
+        <img src="images/ham2.jpeg" class="pile p2">
+        <img src="images/ham3.jpeg" class="pile p3">
+        <img src="images/ham4.jpeg" class="pile p4">
+        <img src="images/ham5.jpeg" class="pile p5">
+        <img src="images/ham6.jpeg" class="pile p6">
+        <img src="images/ham7.jpeg" class="pile p7">
+        <img src="images/ham8.jpeg" class="pile p8">
+        <img src="images/ham9.jpeg" class="pile p9">
+        <img src="images/ham10.jpeg" class="pile p10">
+      </div>
+      
+      
+
+      <div class="hero-actions hero-actions-2">
+        <button id="btnConfetti" class="btn primary">클릭하면 폭죽이 터져요! 🎊</button>
+        <button id="btnGoGames" class="btn ghost">5가지 게임을 통해 윤잘알 순위 확인하기!</button>
+      </div>
+    </header>
+  </main>
+
+  <!-- 2) 게임 페이지 -->
+  <section id="pageGames" class="main hidden">
+    <div class="bg"></div>
+
+    <div class="card">
+      <h3 class="section-title center">윤잘알 테스트 🎮</h3>
+      <p class="text subtle center">5가지 게임을 완료하면 점수와 등수를 보여드려요!</p>
+      <div class="nickname-row">
+        <input id="nicknameInput" class="input" placeholder="닉네임을 입력해줘 (필수)" />
+        <button id="btnStartGames" class="btn primary">시작!</button>
+      </div>
+      <p class="subtle center" id="nickStatus"></p>
+      
+      <div class="leaderboard card" style="margin-top:14px;">
+        <h3 class="section-title center">윤잘알 TOP 5 🏆</h3>
+        <ol id="leaderboardList" class="memo-list" style="padding-left:18px;"></ol>
+      </div>
+      
+
+
+    <!-- Game 1: 틀린그림찾기 -->
+    <section class="card" id="diffSection">
+      <h3 class="section-title">게임 1) 틀린그림 5개 찾기 🔎</h3>
+      <p class="text subtle">
+        아래 두 사진에서 다른 곳 5개를 찾아 클릭.<br/>
+        다 찾으면 이 게임은 완료!
+      </p>
+
+      <div class="diff-wrap">
+        <div class="diff-col">
+          <div class="diff-label">왼쪽</div>
+          <canvas id="cvLeft" width="520" height="520"></canvas>
+        </div>
+        <div class="diff-col">
+          <div class="diff-label">오른쪽</div>
+          <canvas id="cvRight" width="520" height="520"></canvas>
+        </div>
+      </div>
+
+      <div class="diff-status">
+        <div>찾은 개수: <b id="foundCount">0</b> / 5</div>
+        <div class="subtle">힌트: 틀린 곳을 누르면 동그라미가 생겨요</div>
+      </div>
+    </section>
+
+    <!-- Game 2~5: 퀴즈 -->
+    <section class="card">
+      <h3 class="section-title">게임 2) 윤서 전공 맞추기 🎓</h3>
+      <div class="quiz">
+        <div class="quiz-q" id="q2">윤서 전공은?</div>
+        <div class="quiz-options" id="opt2"></div>
+        <div class="subtle" id="hint2"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3 class="section-title">게임 3) 윤서 생일 맞추기 🎂</h3>
+      <div class="quiz">
+        <div class="quiz-q" id="q3">윤서 생일은?</div>
+        <div class="quiz-options" id="opt3"></div>
+        <div class="subtle" id="hint3"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3 class="section-title">게임 4) 윤서가 제일 좋아하는 음식 맞추기 🍜</h3>
+      <div class="quiz">
+        <div class="quiz-q" id="q4">윤서가 제일 좋아하는 음식은?</div>
+        <div class="quiz-options" id="opt4"></div>
+        <div class="subtle" id="hint4"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3 class="section-title">게임 5) 윤서 닮은 동물 찾기 🐾</h3>
+      <div class="quiz">
+        <div class="quiz-q" id="q5">윤서랑 가장 닮은 동물은?</div>
+        <div class="quiz-options" id="opt5"></div>
+        <div class="subtle" id="hint5"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3 class="section-title center">현재 점수</h3>
+      <p class="text center">
+        <b id="scoreText">0</b>점 / 5점
+      </p>
+      <p class="text subtle center" id="rankText">게임을 완료하면 등수가 나와요!</p>
+    </section>
+  </section>
+  <div class="page-actions">
+    <button id="btnBackToMain" class="btn ghost">← 메인으로</button>
+    <button id="btnGoMessage" class="btn primary">다 했어요! 이제 축하메시지를 남겨보아요! →</button>
+  </div>
+</div>
+
+  <!-- 3) 메시지 페이지 -->
+  <section id="pageMessage" class="main hidden">
+    <div class="bg"></div>
+    <p class="text subtle center">닉네임: <b id="currentNick">-</b></p>
+
+    <div class="card">
+      <h3 class="section-title center">윤서에게 축하 메시지 남기기 💌</h3>
+      <p class="text subtle center">윤서가 보면 행복할 한 문장을 남겨주세요!</p>
+
+      <div class="memo">
+        <input id="msgInput" class="input" placeholder="윤서야 생일 진짜 축하해! 오늘 제일 행복해!" />
+        <button id="btnAddMsg" class="btn primary">남기기</button>
+      </div>
+
+      <ul id="msgList" class="memo-list"></ul>
+
+      <div class="page-actions">
+        <button id="btnBackToGames" class="btn ghost">← 게임으로</button>
+        <button id="btnBackToMain2" class="btn">메인으로 돌아가기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 공용 모달 -->
+  <div class="modal" id="modal">
+    <div class="modal-box">
+      <h3 id="modalTitle">제목</h3>
+      <p id="modalText">내용</p>
+      <div class="modal-actions">
+        <button id="btnCloseModal" class="btn">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 폭죽 레이어 -->
+  <div id="confetti"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>

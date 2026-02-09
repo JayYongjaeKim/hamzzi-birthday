@@ -1,0 +1,456 @@
+/* =========================
+   FINAL style.css (정리본)
+   - 메인/게임/메시지 페이지 배경 분리
+   - 메인 히어로 카드/사진 안 잘리게
+   - 카드/스코어/퀴즈 UI 투명(글래스)
+   - 중복 제거
+========================= */
+
+/* reset */
+* { box-sizing: border-box; }
+
+:root{
+  --glass-bg: rgba(255,255,255,0.35);
+  --glass-bg-strong: rgba(255,255,255,0.45);
+  --glass-border: rgba(255,255,255,0.35);
+  --line: rgba(0,0,0,0.08);
+  --text: #111;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+.hidden { display: none !important; }
+.center { text-align: center; }
+
+/* =========================
+   공용 배경 레이어
+   - 각 페이지(main/games/message) 안에 <div class="bg"></div> 가 있어야 함
+========================= */
+.bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(circle at 15% 10%, #ffd6e7, transparent 40%),
+              radial-gradient(circle at 85% 25%, #d6f5ff, transparent 45%),
+              radial-gradient(circle at 40% 90%, #fff3c4, transparent 45%),
+              #fafafa;
+}
+
+/* ✅ 메인 페이지만 birthday-bg 적용 */
+#pageMain .bg{
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.12), rgba(255,255,255,0.12)),
+    url("images/birthday-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* (선택) 게임/메시지는 기본 그라데이션 그대로 두고 싶으면 아래는 그대로 둠.
+   만약 게임/메시지도 같은 배경을 쓰고 싶으면 #pageGames .bg / #pageMessage .bg에도 동일하게 붙이면 됨.
+*/
+
+/* =========================
+   레이아웃 컨테이너
+========================= */
+.main {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 22px;
+  display: grid;
+  gap: 16px;
+}
+
+/* ✅ 메인 페이지는 한 화면에 꽉 차게(히어로를 가운데로) */
+#pageMain.main {
+  min-height: 100vh;
+  align-content: center;
+}
+
+/* =========================
+   글래스 카드(공용)
+========================= */
+.card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+}
+
+/* =========================
+   타이포
+========================= */
+.hero-title { margin: 0; font-size: 30px; }
+.hero-sub { margin: 8px 0 14px; color: rgba(0,0,0,0.72); }
+
+.section-title { margin: 0 0 10px; font-size: 20px; }
+.text { line-height: 1.7; margin: 0; }
+.subtle { color: rgba(0,0,0,0.72); }
+
+/* =========================
+   버튼/인풋
+========================= */
+.btn {
+  border: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 15px;
+  background: #111;
+  color: #fff;
+  user-select: none;
+  transition: transform 0.12s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+
+.btn.primary { background: #111; }
+.btn.ghost {
+  background: rgba(255,255,255,0.25);
+  color: #111;
+  border: 1px solid rgba(0,0,0,0.18);
+}
+
+.input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 12px;
+  outline: none;
+  background: rgba(255,255,255,0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.35);
+}
+
+/* =========================
+   HERO(메인 카드)
+========================= */
+.hero-center { display: grid; gap: 14px; }
+
+/* ✅ 사진 2장: 안 잘리게 + 칸 꽉 차게 */
+.hero-photos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.hero-img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;       /* 칸 비율 고정(꽉 찬 느낌) */
+  object-fit: contain;       /* ✅ 안 잘리게 전체 보이기 */
+  background: rgba(255,255,255,0.18); /* contain 여백 자연스럽게 */
+  border-radius: 14px;
+  border: 1px solid var(--line);
+}
+
+/* ✅ 버튼 2개 한 줄(모바일은 한 줄씩) */
+.hero-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+.hero-actions-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .hero-photos { grid-template-columns: 1fr; }
+  .hero-actions-2 { grid-template-columns: 1fr; }
+}
+
+/* =========================
+   Gate 화면(처음 Yes/No)
+========================= */
+.gate {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  z-index: 9999;
+
+  background-image:
+    linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)),
+    url("images/hamster-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+#gate.hidden { display: none; }
+
+.gate-card {
+  width: min(520px, 96vw);
+  background: rgba(255,255,255,0.18);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 18px;
+  padding: 22px;
+  border: 1px solid rgba(255,255,255,0.45);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  text-align: center;
+}
+
+.gate-title { margin: 0 0 10px; font-size: 26px; }
+.gate-sub { margin: 0 0 14px; color: rgba(0,0,0,0.72); }
+
+.gate-area {
+  position: relative;
+  height: 160px;
+  margin-top: 14px;
+  border-radius: 16px;
+  border: 1px dashed rgba(0,0,0,0.18);
+  background: rgba(255,255,255,0.35);
+  overflow: hidden;
+}
+
+.gate-hint { margin: 12px 0 0; color: rgba(0,0,0,0.72); }
+
+.yes, .no {
+  position: absolute;
+  min-width: 140px;
+}
+
+/* =========================
+   모달
+========================= */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: rgba(0,0,0,0.35);
+  padding: 18px;
+  z-index: 10000;
+}
+.modal.show { display: grid; }
+
+.modal-box {
+  width: min(520px, 96vw);
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.5);
+}
+
+.modal-actions { margin-top: 14px; display: flex; justify-content: flex-end; }
+
+/* =========================
+   폭죽
+========================= */
+#confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 9998; }
+
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 14px;
+  opacity: 0.9;
+  transform: translateY(-20px) rotate(0deg);
+  animation: fall 1.6s linear forwards;
+}
+@keyframes fall {
+  to { transform: translateY(110vh) rotate(540deg); opacity: 1; }
+}
+
+/* =========================
+   게임 페이지 네비 영역
+========================= */
+.page-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+/* =========================
+   틀린그림찾기
+========================= */
+.diff-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 10px;
+}
+@media (max-width: 900px){
+  .diff-wrap { grid-template-columns: 1fr; }
+}
+
+.diff-col { display: grid; gap: 8px; justify-items: center; }
+.diff-label { color: rgba(0,0,0,0.72); }
+
+canvas {
+  width: 100%;
+  max-width: 520px;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.25);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.diff-status { margin-top: 12px; display: grid; gap: 6px; }
+
+/* =========================
+   퀴즈(투명 글래스)
+========================= */
+.quiz { display: grid; gap: 12px; margin-top: 10px; }
+
+.quiz-q {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 16px;
+}
+
+.quiz-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.quiz-opt {
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.30);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 14px;
+  padding: 14px 12px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: transform 0.12s ease;
+}
+.quiz-opt:hover { transform: translateY(-1px); }
+.quiz-opt:active { transform: translateY(0); }
+
+@media (max-width: 720px) {
+  .quiz-options { grid-template-columns: 1fr; }
+}
+
+/* =========================
+   메시지 페이지
+========================= */
+.memo { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+
+.memo-list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  line-height: 1.7;
+}
+
+/* (선택) 리스트도 살짝 글래스 느낌 */
+.memo-list li{
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.25);
+  border: 1px solid rgba(255,255,255,0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* =========================
+   메인 사진 콜라주(겹겹이 쌓기) - 10장 버전
+========================= */
+.photo-pile{
+    position: relative;
+    width: min(900px, 94vw);
+    height: min(420px, 46vh);
+    margin: 14px auto 0;
+  }
+  
+  /* 공용 사진 스타일 */
+  .photo-pile .pile{
+    position: absolute;
+  
+    width: clamp(170px, 24vw, 260px);
+    height: clamp(220px, 30vw, 320px);
+  
+    object-fit: cover;
+    border-radius: 16px;
+  
+    background: rgba(255,255,255,0.9);
+    padding: 10px 10px 28px 10px;
+    border: 1px solid rgba(255,255,255,0.55);
+  
+    box-shadow:
+      0 18px 40px rgba(0,0,0,0.18),
+      0 2px 0 rgba(255,255,255,0.6) inset;
+  
+    transition: transform 0.18s ease, z-index 0s;
+  }
+  
+  /* 호버 시 살짝 들림 */
+  .photo-pile .pile:hover{
+    transform: translateY(-6px) rotate(0deg) scale(1.04);
+    z-index: 99;
+  }
+  
+  /* =========================
+     10장 배치 (겹겹 느낌)
+  ========================= */
+  
+  .photo-pile .p1{ left: 2%;  top: 10%; transform: rotate(-12deg); z-index: 1; }
+  .photo-pile .p2{ left: 14%; top: 0%;  transform: rotate(8deg);   z-index: 2; }
+  .photo-pile .p3{ left: 30%; top: 12%; transform: rotate(-5deg);  z-index: 3; }
+  .photo-pile .p4{ left: 46%; top: 0%;  transform: rotate(10deg);  z-index: 4; }
+  .photo-pile .p5{ left: 62%; top: 14%; transform: rotate(-8deg);  z-index: 5; }
+  
+  .photo-pile .p6{ left: 8%;  top: 48%; transform: rotate(6deg);   z-index: 6; }
+  .photo-pile .p7{ left: 26%; top: 42%; transform: rotate(-14deg); z-index: 7; }
+  .photo-pile .p8{ left: 44%; top: 50%; transform: rotate(5deg);   z-index: 8; }
+  .photo-pile .p9{ left: 60%; top: 44%; transform: rotate(-6deg);  z-index: 9; }
+  .photo-pile .p10{left: 74%; top: 6%;  transform: rotate(12deg);  z-index: 10; }
+  
+  /* =========================
+     모바일 대응
+  ========================= */
+  @media (max-width: 720px){
+    .photo-pile{
+      height: 600px;
+    }
+  
+    .photo-pile .pile{
+      width: 56vw;
+      height: 70vw;
+    }
+  
+    .photo-pile .p1{ left: 4%;  top: 4%; }
+    .photo-pile .p2{ left: 42%; top: 0%; }
+    .photo-pile .p3{ left: 8%;  top: 30%; }
+    .photo-pile .p4{ left: 46%; top: 26%; }
+    .photo-pile .p5{ left: 10%; top: 56%; }
+    .photo-pile .p6{ left: 48%; top: 52%; }
+  
+    /* 모바일은 6장만 보여도 예쁨 */
+    .photo-pile .p7,
+    .photo-pile .p8,
+    .photo-pile .p9,
+    .photo-pile .p10{
+      display:none;
+    }
+  }
+
+  .hero-actions{
+    margin-top: 120px;
+  }
+  
