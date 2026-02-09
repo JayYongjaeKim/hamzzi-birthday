@@ -48,7 +48,7 @@ body {
   z-index: -1;
   background-image:
     linear-gradient(rgba(255,255,255,0.12), rgba(255,255,255,0.12)),
-    url("images/birthday-bg.JPG");
+    url("images/birthday-bg.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
