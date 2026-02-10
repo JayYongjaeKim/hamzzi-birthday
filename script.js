@@ -498,7 +498,6 @@ setNickUI();
     { id: 2, x: 390, y: 165, r: 95 }, // 위-오른쪽: 얼굴 햄스터
     { id: 3, x: 260, y: 600, r: 40 }, // 아래-왼쪽: 목걸이 제거 (※ 캔버스 520이면 y가 넘어감 -> 아래 설명 참고)
     { id: 4, x: 480, y: 585, r: 40 }, // 아래-오른쪽: 꽃 제거 (※ 캔버스 520이면 y가 넘어감 -> 아래 설명 참고)
-    { id: 5, x: 248, y: 565, r: 45 }, // 아래-왼쪽: 꽃잎 증가 (※ 캔버스 520이면 y가 넘어감 -> 아래 설명 참고)
   ];
 
   // ✅ 찾은 것 저장
@@ -532,11 +531,6 @@ setNickUI();
       drawCover(ctxL, leftImg, cvLeft.width, cvLeft.height);
       drawCover(ctxR, rightImg, cvRight.width, cvRight.height);
 
-      // 이미 찾은 정답들 동그라미 다시 그리기
-      for (const diff of DIFFS) {
-        if (found.has(diff.id)) {
-          drawCircle(ctxL, diff);
-          drawCircle(ctxR, diff);
         }
       }
     }
@@ -561,34 +555,25 @@ setNickUI();
 
     return { x, y };
   }
+      
+   function handleClick(canvas, ctx, e) {
+     // 이미 5개 다 찾았으면 무시
+     if (found.size >= DIFFS.length) return;
+   
+     // 아직 안 찾은 diff 중 "첫번째"를 그냥 찾은 걸로 처리
+     const next = DIFFS.find(d => !found.has(d.id));
+     if (!next) return;
+   
+     found.add(next.id);
+     foundCountEl.textContent = String(found.size);
+   
+     // 동그라미 표시 완전 제거 (그림 그리는 코드 없음)
+   
+     if (found.size === DIFFS.length) {
+       alert("🎉 다 찾았다! 게임 1 완료!");
+     }
+   }
 
-  function handleClick(canvas, ctx, e) {
-    const { x, y } = getCanvasXY(canvas, e);
-
-    for (const diff of DIFFS) {
-      if (found.has(diff.id)) continue;
-
-      const dx = x - diff.x;
-      const dy = y - diff.y;
-
-      // 원 안인지 판별: dx^2 + dy^2 <= r^2
-      if (dx * dx + dy * dy <= diff.r * diff.r) {
-        found.add(diff.id);
-
-        // 양쪽 캔버스에 동그라미
-        drawCircle(ctxL, diff);
-        drawCircle(ctxR, diff);
-
-        foundCountEl.textContent = String(found.size);
-
-        // 5개 다 찾으면 완료 처리(원하면 여기서 점수 추가/다음 게임 열기 등)
-        if (found.size === 5) {
-          alert("🎉 다 찾았어요! 게임 1 완료!");
-        }
-        return;
-      }
-    }
-  }
 
   // ✅ 이벤트 연결 (왼쪽/오른쪽 아무거나 눌러도 인정)
   cvLeft.addEventListener("click", (e) => handleClick(cvLeft, ctxL, e));
