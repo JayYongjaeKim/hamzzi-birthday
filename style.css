@@ -53,6 +53,18 @@ body {
   background-position: center;
   background-repeat: no-repeat;
 }
+/* ✅ 메시지 페이지만 배경 이미지 적용 */
+#pageMessage .bg{
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.12), rgba(255,255,255,0.12)),
+    url("images/원하는배경.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
 
 /* (선택) 게임/메시지는 기본 그라데이션 그대로 두고 싶으면 아래는 그대로 둠.
    만약 게임/메시지도 같은 배경을 쓰고 싶으면 #pageGames .bg / #pageMessage .bg에도 동일하게 붙이면 됨.
