@@ -68,7 +68,7 @@ body {
   z-index: -1;
   background-image:
     linear-gradient(rgba(255,255,255,0.12), rgba(255,255,255,0.12)),
-    url("images/원하는배경.jpg");
+    url("images/game_bg.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
