@@ -60,7 +60,7 @@ body {
   z-index: -1;
   background-image:
     linear-gradient(rgba(255,255,255,0.12), rgba(255,255,255,0.12)),
-    url("images/heart_bg2.jpg");
+    url("images/heart_bg2.avif");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
