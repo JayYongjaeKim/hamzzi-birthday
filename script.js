@@ -1,4 +1,36 @@
 /* =========================
+   Firebase (Firestore) 연결 (모듈 방식)
+   - CDN import 사용
+========================= */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp,
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+
+// ✅ Firebase 콘솔 Web App 설정값 그대로 넣기
+const firebaseConfig = {
+  apiKey: "AIzaSyAgCAi09y4MBUr0XlpzMw0XF3X_gx1aBvg",
+  authDomain: "birthday-8d372.firebaseapp.com",
+  projectId: "birthday-8d372",
+  storageBucket: "birthday-8d372.firebasestorage.app",
+  messagingSenderId: "624348070080",
+  appId: "1:624348070080:web:d758b903704e370fd72d25"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// (디버깅용) 콘솔에서 window.db 찍으면 Firestore 객체 보여야 함
+window.db = db;
+
+/* =========================
    공용: 모달 + 폭죽
 ========================= */
 const modal = document.getElementById("modal");
@@ -38,13 +70,6 @@ function popConfetti(count = 100) {
 }
 
 /* =========================
-   Firestore 준비 체크
-========================= */
-function fbReady() {
-  return !!(window.db && window.fbCollection && window.fbAddDoc && window.fbGetDocs && window.fbQuery && window.fbOrderBy && window.fbLimit);
-}
-
-/* =========================
    페이지 전환
 ========================= */
 const gate = document.getElementById("gate");
@@ -53,7 +78,7 @@ const pageGames = document.getElementById("pageGames");
 const pageMessage = document.getElementById("pageMessage");
 
 function showOnly(target) {
-  [pageMain, pageGames, pageMessage].forEach(p => p?.classList.add("hidden"));
+  [pageMain, pageGames, pageMessage].forEach((p) => p?.classList.add("hidden"));
   target?.classList.remove("hidden");
   window.scrollTo(0, 0);
 }
@@ -73,7 +98,7 @@ function placeButtons() {
   const rect = gateArea.getBoundingClientRect();
   btnYes.style.left = "60px";
   btnYes.style.top = "80px";
-  btnNo.style.left = (rect.width - 200) + "px";
+  btnNo.style.left = rect.width - 200 + "px";
   btnNo.style.top = "80px";
 }
 window.addEventListener("load", placeButtons);
@@ -100,8 +125,8 @@ btnNo?.addEventListener("mouseenter", () => {
 gateArea?.addEventListener("mousemove", (e) => {
   if (!chaseMode || !gateArea || !btnYes) return;
   const rect = gateArea.getBoundingClientRect();
-  let nx = (e.clientX - rect.left) + 20;
-  let ny = (e.clientY - rect.top) + 20;
+  let nx = e.clientX - rect.left + 20;
+  let ny = e.clientY - rect.top + 20;
   nx = Math.max(0, Math.min(nx, rect.width - btnYes.offsetWidth));
   ny = Math.max(0, Math.min(ny, rect.height - btnYes.offsetHeight));
   btnYes.style.left = nx + "px";
@@ -143,26 +168,6 @@ function setNickUI() {
   if (el) el.textContent = currentNick || "-";
 }
 
-document.getElementById("btnStartGames")?.addEventListener("click", async () => {
-  const input = document.getElementById("nicknameInput");
-  const status = document.getElementById("nickStatus");
-  const nick = (input?.value || "").trim();
-
-  if (!nick) {
-    if (status) status.textContent = "닉네임을 입력해야 시작할 수 있어요!";
-    openModal("닉네임 필요!", "닉네임을 입력하고 시작 버튼을 눌러주세요!");
-    return;
-  }
-
-  currentNick = nick;
-  gameStartedAt = Date.now();
-  gameFinishedAt = null;
-
-  if (status) status.textContent = `닉네임 확정: ${currentNick} ✅ 이제 게임을 진행해주세요!`;
-  setNickUI();
-  await renderLeaderboard();
-});
-
 /* =========================
    점수/등수 시스템 (5점 만점)
 ========================= */
@@ -183,37 +188,6 @@ function updateScoreUI() {
   else rankText.textContent = "현재 예상 등수: 1등 (윤박사 👑)";
 }
 
-async function maybeFinishAndRecord() {
-  if (score !== 5) return;
-  if (!currentNick || !gameStartedAt) return;
-  if (gameFinishedAt) return;
-
-  gameFinishedAt = Date.now();
-  const elapsedMs = gameFinishedAt - gameStartedAt;
-
-  // ✅ Firestore에 랭킹 저장
-  try {
-    if (!fbReady()) throw new Error("Firebase not ready");
-
-    await window.fbAddDoc(
-      window.fbCollection(window.db, "ranks"),
-      {
-        nick: currentNick,
-        score: 5,
-        elapsedMs,
-        finishedAt: gameFinishedAt
-      }
-    );
-
-    popConfetti(220);
-    openModal("🏆 올클리어!", `윤잘알 테스트 완료!\n${currentNick} 기록이 랭킹에 저장됐어요!`);
-    await renderLeaderboard();
-  } catch (err) {
-    console.error(err);
-    openModal("저장 실패", "Firebase 설정(Firestore/보안규칙)을 확인해줘!");
-  }
-}
-
 function addPoint(key) {
   if (solved[key]) return;
   solved[key] = true;
@@ -223,7 +197,8 @@ function addPoint(key) {
 }
 
 /* =========================
-   랭킹 TOP5 표시 (Firestore)
+   Firestore: 랭킹 저장/표시
+   - 컬렉션 이름: rank
 ========================= */
 function msToText(ms) {
   const s = Math.floor(ms / 1000);
@@ -233,72 +208,142 @@ function msToText(ms) {
   return `${m}분 ${ss}초`;
 }
 
-async function renderLeaderboard() {
+let unsubscribeRank = null;
+
+function listenLeaderboard() {
   const list = document.getElementById("leaderboardList");
   if (!list) return;
 
-  list.innerHTML = "";
-  const liLoading = document.createElement("li");
-  liLoading.textContent = "랭킹 불러오는 중...";
-  list.appendChild(liLoading);
-
   try {
-    if (!fbReady()) throw new Error("Firebase not ready");
+    if (unsubscribeRank) unsubscribeRank();
 
-    // ✅ 점수는 어차피 5점 고정이지만, 확장 대비:
-    // score desc, finishedAt asc 를 원하면 "두 필드 정렬"이 필요함.
-    // Firestore는 복합 정렬에 인덱스가 필요할 수 있어.
-    // 여기서는 finishedAt(오름차순)만으로 TOP5를 뽑아도 충분히 자연스러움(먼저 깬 사람이 위).
+    // 랭킹: 최근 기록을 많이 가져와서 프론트에서 정렬 후 TOP5 표시
+    const qRank = query(collection(db, "rank"), orderBy("finishedAt", "desc"), limit(200));
 
-    const q = window.fbQuery(
-      window.fbCollection(window.db, "ranks"),
-      window.fbOrderBy("finishedAt", "asc"),
-      window.fbLimit(5)
+    unsubscribeRank = onSnapshot(
+      qRank,
+      (snap) => {
+        const rows = [];
+        snap.forEach((doc) => {
+          const d = doc.data();
+          // dummy 제거
+          if (d?.dummy) return;
+          if (!d?.nick) return;
+          rows.push({
+            nick: d.nick,
+            score: d.score ?? 0,
+            elapsedMs: d.elapsedMs ?? 999999999,
+            finishedAtMs: d.finishedAt?.toMillis ? d.finishedAt.toMillis() : Number(d.finishedAtMs ?? 0),
+          });
+        });
+
+        // 정렬: 점수 내림차순, 동점이면 소요시간 오름차순, 동점이면 완료시각 오름차순
+        rows.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          if (a.elapsedMs !== b.elapsedMs) return a.elapsedMs - b.elapsedMs;
+          return a.finishedAtMs - b.finishedAtMs;
+        });
+
+        const top5 = rows.slice(0, 5);
+
+        list.innerHTML = "";
+        if (top5.length === 0) {
+          const li = document.createElement("li");
+          li.textContent = "아직 기록이 없어요! 1등은 윤서가 가져간다 😆";
+          list.appendChild(li);
+          return;
+        }
+
+        top5.forEach((r, idx) => {
+          const li = document.createElement("li");
+          li.textContent = `${idx + 1}위 - ${r.nick} / ${r.score}점 / ${msToText(r.elapsedMs)}`;
+          list.appendChild(li);
+        });
+      },
+      (err) => {
+        console.error(err);
+        list.innerHTML = "";
+        const li = document.createElement("li");
+        li.textContent = "랭킹을 불러오지 못했어요. Firestore 규칙/설정을 확인해줘!";
+        list.appendChild(li);
+      }
     );
-
-    const snap = await window.fbGetDocs(q);
-    const data = [];
-    snap.forEach(doc => data.push(doc.data()));
-
-    list.innerHTML = "";
-    if (data.length === 0) {
-      const li = document.createElement("li");
-      li.textContent = "아직 기록이 없어요! 1등은 윤서가 가져간다 😆";
-      list.appendChild(li);
-      return;
-    }
-
-    data.forEach((r, idx) => {
-      const li = document.createElement("li");
-      li.textContent = `${idx + 1}위 - ${r.nick} / ${r.score}점 / ${msToText(r.elapsedMs)}`;
-      list.appendChild(li);
-    });
-
-  } catch (err) {
-    console.error(err);
-    list.innerHTML = "";
-    const li = document.createElement("li");
-    li.textContent = "랭킹을 불러오지 못했어요. Firestore 설정을 확인해줘!";
-    list.appendChild(li);
+  } catch (e) {
+    console.error(e);
   }
 }
+
+// 올클리어 시 Firestore에 기록 저장
+async function maybeFinishAndRecord() {
+  if (score !== 5) return;
+  if (!currentNick || !gameStartedAt) return;
+  if (gameFinishedAt) return;
+
+  gameFinishedAt = Date.now();
+  const elapsedMs = gameFinishedAt - gameStartedAt;
+
+  try {
+    await addDoc(collection(db, "rank"), {
+      nick: currentNick,
+      score: 5,
+      elapsedMs,
+      finishedAt: serverTimestamp(),
+      finishedAtMs: gameFinishedAt, // 정렬 보조용
+    });
+
+    popConfetti(220);
+    openModal("🏆 올클리어!", `윤잘알 테스트 완료!\n${currentNick} 기록이 랭킹에 저장됐어요!`);
+  } catch (e) {
+    console.error(e);
+    openModal("저장 실패", "랭킹 저장을 못했어요. Firestore 규칙/설정을 확인해줘!");
+  }
+}
+
+/* =========================
+   닉네임 시작
+========================= */
+document.getElementById("btnStartGames")?.addEventListener("click", () => {
+  const input = document.getElementById("nicknameInput");
+  const status = document.getElementById("nickStatus");
+  const nick = (input?.value || "").trim();
+
+  if (!nick) {
+    if (status) status.textContent = "닉네임을 입력해야 시작할 수 있어요!";
+    openModal("닉네임 필요!", "닉네임을 입력하고 시작 버튼을 눌러주세요!");
+    return;
+  }
+
+  currentNick = nick;
+  gameStartedAt = Date.now();
+  gameFinishedAt = null;
+
+  // 새 게임 시작하면 점수/상태 초기화
+  score = 0;
+  Object.keys(solved).forEach((k) => (solved[k] = false));
+  updateScoreUI();
+
+  if (status) status.textContent = `닉네임 확정: ${currentNick} ✅ 이제 게임을 진행해주세요!`;
+  setNickUI();
+});
 
 /* =========================
    네비게이션 버튼
 ========================= */
 document.getElementById("btnBackToMain")?.addEventListener("click", () => showOnly(pageMain));
 
-document.getElementById("btnGoMessage")?.addEventListener("click", async () => {
+document.getElementById("btnGoMessage")?.addEventListener("click", () => {
   showOnly(pageMessage);
   setNickUI();
-  await renderMessages();
+  renderMessages(); // 화면 갱신
 });
 
 document.getElementById("btnBackToGames")?.addEventListener("click", () => showOnly(pageGames));
 document.getElementById("btnBackToMain2")?.addEventListener("click", () => showOnly(pageMain));
 
 /* =========================
-   게임 1: 틀린그림찾기(5개)
+   게임 1: 틀린그림찾기 (캔버스 + 좌표)
+   - 이미지가 안 뜨면 99% "경로/확장자" 문제
+   - images 폴더에 ham2.jpeg, ham11.jpeg 실제 존재해야 함
 ========================= */
 const cvLeft = document.getElementById("cvLeft");
 const cvRight = document.getElementById("cvRight");
@@ -310,15 +355,18 @@ if (cvLeft && cvRight) {
 
   const imgLeft = new Image();
   const imgRight = new Image();
+
+  // ✅ 여기 파일명/확장자 실제 파일과 100% 일치해야 함
   imgLeft.src = "images/ham2.jpeg";
   imgRight.src = "images/ham11.jpeg";
 
+  // ✅ 상대좌표 (0~1)로 잡으면 화면 크기 달라도 편함
   const DIFF_POINTS = [
-    { x: 0.22, y: 0.28, r: 0.05 },
-    { x: 0.68, y: 0.22, r: 0.05 },
-    { x: 0.78, y: 0.52, r: 0.05 },
-    { x: 0.30, y: 0.72, r: 0.05 },
-    { x: 0.58, y: 0.80, r: 0.05 },
+    { x: 0.22, y: 0.28, r: 0.06 },
+    { x: 0.68, y: 0.22, r: 0.09 },
+    { x: 0.78, y: 0.52, r: 0.07 },
+    { x: 0.30, y: 0.72, r: 0.06 },
+    { x: 0.58, y: 0.80, r: 0.06 },
   ];
 
   let found = new Array(DIFF_POINTS.length).fill(false);
@@ -341,8 +389,10 @@ if (cvLeft && cvRight) {
 
   function drawAll() {
     if (!imgLeft.complete || !imgRight.complete) return;
+
     ctxL.clearRect(0, 0, cvLeft.width, cvLeft.height);
     ctxR.clearRect(0, 0, cvRight.width, cvRight.height);
+
     ctxL.drawImage(imgLeft, 0, 0, cvLeft.width, cvLeft.height);
     ctxR.drawImage(imgRight, 0, 0, cvRight.width, cvRight.height);
 
@@ -354,6 +404,12 @@ if (cvLeft && cvRight) {
   }
 
   function handleClick(e) {
+    // 닉네임 시작 안 했으면 막기
+    if (!currentNick || !gameStartedAt) {
+      openModal("닉네임 먼저!", "위에서 닉네임 입력하고 시작 버튼을 눌러주세요!");
+      return;
+    }
+
     const canvas = e.currentTarget;
     const rect = canvas.getBoundingClientRect();
     const px = (e.clientX - rect.left) / rect.width;
@@ -365,8 +421,11 @@ if (cvLeft && cvRight) {
       const p = DIFF_POINTS[i];
       const dx = px - p.x;
       const dy = py - p.y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist <= p.r) { hit = i; break; }
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= p.r) {
+        hit = i;
+        break;
+      }
     }
 
     if (hit === -1) {
@@ -388,8 +447,18 @@ if (cvLeft && cvRight) {
 
   cvLeft.addEventListener("click", handleClick);
   cvRight.addEventListener("click", handleClick);
+
   imgLeft.onload = drawAll;
   imgRight.onload = drawAll;
+
+  imgLeft.onerror = () => {
+    console.error("왼쪽 이미지 로드 실패:", imgLeft.src);
+    openModal("이미지 로드 실패", `왼쪽 이미지 경로 확인: ${imgLeft.src}`);
+  };
+  imgRight.onerror = () => {
+    console.error("오른쪽 이미지 로드 실패:", imgRight.src);
+    openModal("이미지 로드 실패", `오른쪽 이미지 경로 확인: ${imgRight.src}`);
+  };
 }
 
 /* =========================
@@ -444,51 +513,51 @@ function renderQuiz(key) {
 }
 
 /* =========================
-   메시지 페이지 (Firestore)
+   Firestore: 메시지 저장/불러오기
+   - 컬렉션 이름: messages
 ========================= */
-async function renderMessages() {
+let unsubscribeMsgs = null;
+
+function renderMessagesUI(rows) {
   const ul = document.getElementById("msgList");
   if (!ul) return;
 
   ul.innerHTML = "";
-  const liLoading = document.createElement("li");
-  liLoading.textContent = "메시지 불러오는 중...";
-  ul.appendChild(liLoading);
+  if (!rows || rows.length === 0) return;
 
-  try {
-    if (!fbReady()) throw new Error("Firebase not ready");
-
-    // 최근 메시지 위로 (ts 내림차순)
-    const q = window.fbQuery(
-      window.fbCollection(window.db, "messages"),
-      window.fbOrderBy("ts", "desc"),
-      window.fbLimit(50)
-    );
-
-    const snap = await window.fbGetDocs(q);
-    const data = [];
-    snap.forEach(doc => data.push(doc.data()));
-
-    ul.innerHTML = "";
-    if (data.length === 0) {
-      const li = document.createElement("li");
-      li.textContent = "아직 메시지가 없어요! 첫 메시지를 남겨주세요 💌";
-      ul.appendChild(li);
-      return;
-    }
-
-    data.forEach((m) => {
-      const li = document.createElement("li");
-      li.textContent = `${m.nick}: ${m.text}`;
-      ul.appendChild(li);
-    });
-
-  } catch (err) {
-    console.error(err);
-    ul.innerHTML = "";
+  rows.forEach((m) => {
     const li = document.createElement("li");
-    li.textContent = "메시지를 불러오지 못했어요. Firestore 설정을 확인해줘!";
+    li.textContent = `${m.nick}: ${m.text}`;
     ul.appendChild(li);
+  });
+}
+
+function renderMessages() {
+  // 실시간 구독 1회만
+  try {
+    if (unsubscribeMsgs) return;
+
+    const qMsgs = query(collection(db, "messages"), orderBy("createdAt", "desc"), limit(200));
+
+    unsubscribeMsgs = onSnapshot(
+      qMsgs,
+      (snap) => {
+        const rows = [];
+        snap.forEach((doc) => {
+          const d = doc.data();
+          if (d?.dummy) return;
+          if (!d?.nick || !d?.text) return;
+          rows.push({ nick: d.nick, text: d.text });
+        });
+        renderMessagesUI(rows);
+      },
+      (err) => {
+        console.error(err);
+        openModal("에러", "메시지를 불러오지 못했어요. Firestore 설정(규칙/DB) 확인해줘!");
+      }
+    );
+  } catch (e) {
+    console.error(e);
   }
 }
 
@@ -503,24 +572,17 @@ document.getElementById("btnAddMsg")?.addEventListener("click", async () => {
   if (!text) return;
 
   try {
-    if (!fbReady()) throw new Error("Firebase not ready");
-
-    await window.fbAddDoc(
-      window.fbCollection(window.db, "messages"),
-      {
-        nick: currentNick,
-        text,
-        ts: Date.now()
-      }
-    );
+    await addDoc(collection(db, "messages"), {
+      nick: currentNick,
+      text,
+      createdAt: serverTimestamp(),
+    });
 
     input.value = "";
-    await renderMessages();
     popConfetti(80);
-
-  } catch (err) {
-    console.error(err);
-    openModal("저장 실패", "Firebase 설정(Firestore/보안규칙)을 확인해줘!");
+  } catch (e) {
+    console.error(e);
+    openModal("저장 실패", "메시지 저장을 못했어요. Firestore 규칙/설정을 확인해줘!");
   }
 });
 
@@ -529,10 +591,6 @@ document.getElementById("btnAddMsg")?.addEventListener("click", async () => {
 ========================= */
 ["q2", "q3", "q4", "q5"].forEach(renderQuiz);
 updateScoreUI();
-
-// 페이지 로드 시 랭킹/메시지 미리 로딩 (Firebase 준비되면 동작)
-window.addEventListener("load", async () => {
-  await renderLeaderboard();
-  await renderMessages();
-  setNickUI();
-});
+listenLeaderboard();
+renderMessages();
+setNickUI();
