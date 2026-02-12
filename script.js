@@ -38,21 +38,10 @@ function popConfetti(count = 100) {
 }
 
 /* =========================
-   localStorage (랭킹/메시지)
+   Firestore 준비 체크
 ========================= */
-const LS_RANK = "yunseo_rank_v1";
-const LS_MSG  = "yunseo_msgs_v1";
-
-function loadJSON(key, fallback) {
-  try {
-    const v = JSON.parse(localStorage.getItem(key));
-    return (v ?? fallback);
-  } catch {
-    return fallback;
-  }
-}
-function saveJSON(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+function fbReady() {
+  return !!(window.db && window.fbCollection && window.fbAddDoc && window.fbGetDocs && window.fbQuery && window.fbOrderBy && window.fbLimit);
 }
 
 /* =========================
@@ -154,7 +143,7 @@ function setNickUI() {
   if (el) el.textContent = currentNick || "-";
 }
 
-document.getElementById("btnStartGames")?.addEventListener("click", () => {
+document.getElementById("btnStartGames")?.addEventListener("click", async () => {
   const input = document.getElementById("nicknameInput");
   const status = document.getElementById("nickStatus");
   const nick = (input?.value || "").trim();
@@ -171,7 +160,7 @@ document.getElementById("btnStartGames")?.addEventListener("click", () => {
 
   if (status) status.textContent = `닉네임 확정: ${currentNick} ✅ 이제 게임을 진행해주세요!`;
   setNickUI();
-  renderLeaderboard();
+  await renderLeaderboard();
 });
 
 /* =========================
@@ -194,35 +183,35 @@ function updateScoreUI() {
   else rankText.textContent = "현재 예상 등수: 1등 (윤박사 👑)";
 }
 
-function maybeFinishAndRecord() {
+async function maybeFinishAndRecord() {
   if (score !== 5) return;
   if (!currentNick || !gameStartedAt) return;
-
-  // 이미 기록했으면 중복 저장 방지
   if (gameFinishedAt) return;
 
   gameFinishedAt = Date.now();
   const elapsedMs = gameFinishedAt - gameStartedAt;
 
-  const rankData = loadJSON(LS_RANK, []);
-  rankData.push({
-    nick: currentNick,
-    score: 5,
-    elapsedMs,
-    finishedAt: gameFinishedAt,
-  });
+  // ✅ Firestore에 랭킹 저장
+  try {
+    if (!fbReady()) throw new Error("Firebase not ready");
 
-  // 정렬: 점수 내림차순, 동점이면 완료시간 빠른 순(먼저 끝난 사람이 위)
-  rankData.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    return a.finishedAt - b.finishedAt;
-  });
+    await window.fbAddDoc(
+      window.fbCollection(window.db, "ranks"),
+      {
+        nick: currentNick,
+        score: 5,
+        elapsedMs,
+        finishedAt: gameFinishedAt
+      }
+    );
 
-  saveJSON(LS_RANK, rankData);
-
-  popConfetti(220);
-  openModal("🏆 올클리어!", `윤잘알 테스트 완료!\n${currentNick} 기록이 랭킹에 저장됐어요!`);
-  renderLeaderboard();
+    popConfetti(220);
+    openModal("🏆 올클리어!", `윤잘알 테스트 완료!\n${currentNick} 기록이 랭킹에 저장됐어요!`);
+    await renderLeaderboard();
+  } catch (err) {
+    console.error(err);
+    openModal("저장 실패", "Firebase 설정(Firestore/보안규칙)을 확인해줘!");
+  }
 }
 
 function addPoint(key) {
@@ -234,7 +223,7 @@ function addPoint(key) {
 }
 
 /* =========================
-   랭킹 TOP5 표시
+   랭킹 TOP5 표시 (Firestore)
 ========================= */
 function msToText(ms) {
   const s = Math.floor(ms / 1000);
@@ -244,26 +233,54 @@ function msToText(ms) {
   return `${m}분 ${ss}초`;
 }
 
-function renderLeaderboard() {
+async function renderLeaderboard() {
   const list = document.getElementById("leaderboardList");
   if (!list) return;
 
-  const rankData = loadJSON(LS_RANK, []);
-  const top5 = rankData.slice(0, 5);
-
   list.innerHTML = "";
-  if (top5.length === 0) {
-    const li = document.createElement("li");
-    li.textContent = "아직 기록이 없어요! 1등은 윤서가 가져간다 😆";
-    list.appendChild(li);
-    return;
-  }
+  const liLoading = document.createElement("li");
+  liLoading.textContent = "랭킹 불러오는 중...";
+  list.appendChild(liLoading);
 
-  top5.forEach((r, idx) => {
+  try {
+    if (!fbReady()) throw new Error("Firebase not ready");
+
+    // ✅ 점수는 어차피 5점 고정이지만, 확장 대비:
+    // score desc, finishedAt asc 를 원하면 "두 필드 정렬"이 필요함.
+    // Firestore는 복합 정렬에 인덱스가 필요할 수 있어.
+    // 여기서는 finishedAt(오름차순)만으로 TOP5를 뽑아도 충분히 자연스러움(먼저 깬 사람이 위).
+
+    const q = window.fbQuery(
+      window.fbCollection(window.db, "ranks"),
+      window.fbOrderBy("finishedAt", "asc"),
+      window.fbLimit(5)
+    );
+
+    const snap = await window.fbGetDocs(q);
+    const data = [];
+    snap.forEach(doc => data.push(doc.data()));
+
+    list.innerHTML = "";
+    if (data.length === 0) {
+      const li = document.createElement("li");
+      li.textContent = "아직 기록이 없어요! 1등은 윤서가 가져간다 😆";
+      list.appendChild(li);
+      return;
+    }
+
+    data.forEach((r, idx) => {
+      const li = document.createElement("li");
+      li.textContent = `${idx + 1}위 - ${r.nick} / ${r.score}점 / ${msToText(r.elapsedMs)}`;
+      list.appendChild(li);
+    });
+
+  } catch (err) {
+    console.error(err);
+    list.innerHTML = "";
     const li = document.createElement("li");
-    li.textContent = `${idx + 1}위 - ${r.nick} / ${r.score}점 / ${msToText(r.elapsedMs)}`;
+    li.textContent = "랭킹을 불러오지 못했어요. Firestore 설정을 확인해줘!";
     list.appendChild(li);
-  });
+  }
 }
 
 /* =========================
@@ -271,10 +288,10 @@ function renderLeaderboard() {
 ========================= */
 document.getElementById("btnBackToMain")?.addEventListener("click", () => showOnly(pageMain));
 
-document.getElementById("btnGoMessage")?.addEventListener("click", () => {
+document.getElementById("btnGoMessage")?.addEventListener("click", async () => {
   showOnly(pageMessage);
   setNickUI();
-  renderMessages();
+  await renderMessages();
 });
 
 document.getElementById("btnBackToGames")?.addEventListener("click", () => showOnly(pageGames));
@@ -400,7 +417,6 @@ function renderQuiz(key) {
     btn.textContent = txt;
 
     btn.addEventListener("click", () => {
-      // 닉네임 시작 안 했으면 막기
       if (!currentNick || !gameStartedAt) {
         openModal("닉네임 먼저!", "위에서 닉네임 입력하고 시작 버튼을 눌러주세요!");
         return;
@@ -428,23 +444,55 @@ function renderQuiz(key) {
 }
 
 /* =========================
-   메시지 페이지(닉네임 + 메시지 리스트)
+   메시지 페이지 (Firestore)
 ========================= */
-function renderMessages() {
+async function renderMessages() {
   const ul = document.getElementById("msgList");
   if (!ul) return;
 
-  const data = loadJSON(LS_MSG, []);
   ul.innerHTML = "";
+  const liLoading = document.createElement("li");
+  liLoading.textContent = "메시지 불러오는 중...";
+  ul.appendChild(liLoading);
 
-  data.forEach((m) => {
+  try {
+    if (!fbReady()) throw new Error("Firebase not ready");
+
+    // 최근 메시지 위로 (ts 내림차순)
+    const q = window.fbQuery(
+      window.fbCollection(window.db, "messages"),
+      window.fbOrderBy("ts", "desc"),
+      window.fbLimit(50)
+    );
+
+    const snap = await window.fbGetDocs(q);
+    const data = [];
+    snap.forEach(doc => data.push(doc.data()));
+
+    ul.innerHTML = "";
+    if (data.length === 0) {
+      const li = document.createElement("li");
+      li.textContent = "아직 메시지가 없어요! 첫 메시지를 남겨주세요 💌";
+      ul.appendChild(li);
+      return;
+    }
+
+    data.forEach((m) => {
+      const li = document.createElement("li");
+      li.textContent = `${m.nick}: ${m.text}`;
+      ul.appendChild(li);
+    });
+
+  } catch (err) {
+    console.error(err);
+    ul.innerHTML = "";
     const li = document.createElement("li");
-    li.textContent = `${m.nick}: ${m.text}`;
+    li.textContent = "메시지를 불러오지 못했어요. Firestore 설정을 확인해줘!";
     ul.appendChild(li);
-  });
+  }
 }
 
-document.getElementById("btnAddMsg")?.addEventListener("click", () => {
+document.getElementById("btnAddMsg")?.addEventListener("click", async () => {
   if (!currentNick) {
     openModal("닉네임 먼저!", "게임 페이지에서 닉네임을 먼저 확정해주세요!");
     return;
@@ -454,13 +502,26 @@ document.getElementById("btnAddMsg")?.addEventListener("click", () => {
   const text = (input?.value || "").trim();
   if (!text) return;
 
-  const data = loadJSON(LS_MSG, []);
-  data.unshift({ nick: currentNick, text, ts: Date.now() });
-  saveJSON(LS_MSG, data);
+  try {
+    if (!fbReady()) throw new Error("Firebase not ready");
 
-  input.value = "";
-  renderMessages();
-  popConfetti(80);
+    await window.fbAddDoc(
+      window.fbCollection(window.db, "messages"),
+      {
+        nick: currentNick,
+        text,
+        ts: Date.now()
+      }
+    );
+
+    input.value = "";
+    await renderMessages();
+    popConfetti(80);
+
+  } catch (err) {
+    console.error(err);
+    openModal("저장 실패", "Firebase 설정(Firestore/보안규칙)을 확인해줘!");
+  }
 });
 
 /* =========================
@@ -468,7 +529,10 @@ document.getElementById("btnAddMsg")?.addEventListener("click", () => {
 ========================= */
 ["q2", "q3", "q4", "q5"].forEach(renderQuiz);
 updateScoreUI();
-renderLeaderboard();
-renderMessages();
-setNickUI();
 
+// 페이지 로드 시 랭킹/메시지 미리 로딩 (Firebase 준비되면 동작)
+window.addEventListener("load", async () => {
+  await renderLeaderboard();
+  await renderMessages();
+  setNickUI();
+});
