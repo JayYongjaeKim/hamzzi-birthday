@@ -362,26 +362,20 @@ document.getElementById("btnBackToMain2")?.addEventListener("click", () => showO
   // ✅ “정답 표시”로 그릴 사각형(비율 좌표)
   // x,y,w,h: 0~1 (오른쪽 캔버스 기준)
   // rule: 클릭 인정 범위도 동일 사각형으로 처리
-  const DIFF_AREAS = [
-    // 1) "왼쪽 위 사진의 오른쪽 절반" (오른쪽 이미지 기준)
-    // 왼쪽 위 사진 영역: x 0~0.5, y 0~0.5
-    // 그 중 오른쪽 절반: x 0.25~0.5
-    { id: 1, label: "왼쪽 위(꽃색)", x: 0.25, y: 0.00, w: 0.25, h: 0.50 },
+const DIFF_AREAS = [
+  // 1) 왼쪽 위(꽃색): 오른쪽 절반
+  { id: 1, label: "왼쪽 위(꽃색)", x: 0.25, y: 0.00, w: 0.25, h: 0.50 },
 
-    // 2) "오른쪽 위 사진은 어디든 클릭하면 정답"
-    // 그냥 캔버스 전체를 영역으로
-    { id: 2, label: "오른쪽 위(햄스터)", x: 0.00, y: 0.00, w: 1.00, h: 1.00 },
+  // 2) 오른쪽 위(햄스터): 햄스터 부분만
+  { id: 2, label: "오른쪽 위(햄스터)", x: 0.75, y: 0.00, w: 0.25, h: 0.50 },
 
-    // 3) "왼쪽 아래 사진의 아래 절반"
-    // 왼쪽 아래 사진 영역: x 0~0.5, y 0.5~1
-    // 그 중 아래 절반: y 0.75~1
-    { id: 3, label: "왼쪽 아래(목걸이)", x: 0.00, y: 0.75, w: 0.50, h: 0.25 },
+  // 3) 왼쪽 아래(목걸이): 아래 절반
+  { id: 3, label: "왼쪽 아래(목걸이)", x: 0.00, y: 0.75, w: 0.50, h: 0.25 },
 
-    // 4) "오른쪽 아래 사진의 오른쪽 꽃 부분(대충)"
-    // 오른쪽 아래 사진 영역: x 0.5~1, y 0.5~1
-    // 그 중 오른쪽 부분만 넓게: x 0.75~1, y 0.55~1 (꽃이 오른쪽에 있다고 가정)
-    { id: 4, label: "오른쪽 아래(꽃)", x: 0.75, y: 0.55, w: 0.25, h: 0.45 },
-  ];
+  // 4) 오른쪽 아래(꽃): 오른쪽 꽃 부분(대충 넓게)
+  { id: 4, label: "오른쪽 아래(꽃)", x: 0.75, y: 0.55, w: 0.25, h: 0.45 },
+];
+
 
   const found = new Set();
 
@@ -450,20 +444,23 @@ document.getElementById("btnBackToMain2")?.addEventListener("click", () => showO
       p.y <= (r.y + r.h)
     );
   }
-
-  function setFound(id) {
-    if (found.has(id)) return;
-    found.add(id);
-
-    foundCountEl.textContent = String(found.size);
-    redrawAll();
-
-    if (found.size === DIFF_AREAS.length) {
-      if (typeof popConfetti === "function") popConfetti(200);
-      if (typeof openModal === "function") openModal("🎉 완료!", "틀린그림찾기 성공! +1점");
-      if (typeof addPoint === "function") addPoint("diff");
-    }
-  }
+   
+   let diffCompleted = false; // ✅ 추가
+   
+   function setFound(id) {
+     if (found.has(id)) return;
+     found.add(id);
+   
+     foundCountEl.textContent = String(found.size);
+     redrawAll();
+   
+     if (!diffCompleted && found.size >= DIFF_AREAS.length) {  // ✅ 여기 핵심
+       diffCompleted = true;
+       popConfetti(200);
+       openModal("🎉 완료!", "틀린그림찾기 성공! +1점");
+       addPoint("diff"); // ✅ 무조건 1번만 실행
+     }
+   }
 
   function handleRightClick(e) {
     // 닉네임 시작 안 했으면 막고 싶으면 여기서 체크 가능
