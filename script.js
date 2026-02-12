@@ -293,8 +293,8 @@ if (cvLeft && cvRight) {
 
   const imgLeft = new Image();
   const imgRight = new Image();
-  imgLeft.src = "images/ham2.jpg";
-  imgRight.src = "images/ham11.jpg";
+  imgLeft.src = "images/ham2.jpeg";
+  imgRight.src = "images/ham11.jpeg";
 
   const DIFF_POINTS = [
     { x: 0.22, y: 0.28, r: 0.05 },
