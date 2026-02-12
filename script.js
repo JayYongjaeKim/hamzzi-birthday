@@ -341,12 +341,10 @@ document.getElementById("btnBackToGames")?.addEventListener("click", () => showO
 document.getElementById("btnBackToMain2")?.addEventListener("click", () => showOnly(pageMain));
 
 /* =========================
-   게임 1: 틀린그림찾기(4개) - 넓은 영역(사각형) 클릭으로 정답 처리
-   조건:
-   - 오른쪽 캔버스(cvRight)만 클릭해도 정답 인정
-   - 각 차이마다 클릭 가능한 "사각형 영역"을 넓게 잡음
+   게임 1: 틀린그림찾기(4개) - 초초 넓은 영역 + 정답 표시(사각형 하이라이트)
+   - 오른쪽 캔버스(cvRight)만 클릭으로 인정
+   - 찾으면 "어디를 맞췄는지" 반투명 박스 표시
 ========================= */
-
 (() => {
   const cvLeft = document.getElementById("cvLeft");
   const cvRight = document.getElementById("cvRight");
@@ -358,51 +356,91 @@ document.getElementById("btnBackToMain2")?.addEventListener("click", () => showO
 
   const imgLeft = new Image();
   const imgRight = new Image();
+  imgLeft.src = "images/ham2.jpeg";
+  imgRight.src = "images/ham11.jpeg";
 
-  // ✅ 네 이미지 경로 그대로
-  imgLeft.src = "images/ham2.jpeg";   // 왼쪽(원본)
-  imgRight.src = "images/ham11.jpeg"; // 오른쪽(수정본)
+  // ✅ “정답 표시”로 그릴 사각형(비율 좌표)
+  // x,y,w,h: 0~1 (오른쪽 캔버스 기준)
+  // rule: 클릭 인정 범위도 동일 사각형으로 처리
+  const DIFF_AREAS = [
+    // 1) "왼쪽 위 사진의 오른쪽 절반" (오른쪽 이미지 기준)
+    // 왼쪽 위 사진 영역: x 0~0.5, y 0~0.5
+    // 그 중 오른쪽 절반: x 0.25~0.5
+    { id: 1, label: "왼쪽 위(꽃색)", x: 0.25, y: 0.00, w: 0.25, h: 0.50 },
 
-  // ====== 1) 기본: 이미지 그리기 ======
-  function drawAll() {
+    // 2) "오른쪽 위 사진은 어디든 클릭하면 정답"
+    // 그냥 캔버스 전체를 영역으로
+    { id: 2, label: "오른쪽 위(햄스터)", x: 0.00, y: 0.00, w: 1.00, h: 1.00 },
+
+    // 3) "왼쪽 아래 사진의 아래 절반"
+    // 왼쪽 아래 사진 영역: x 0~0.5, y 0.5~1
+    // 그 중 아래 절반: y 0.75~1
+    { id: 3, label: "왼쪽 아래(목걸이)", x: 0.00, y: 0.75, w: 0.50, h: 0.25 },
+
+    // 4) "오른쪽 아래 사진의 오른쪽 꽃 부분(대충)"
+    // 오른쪽 아래 사진 영역: x 0.5~1, y 0.5~1
+    // 그 중 오른쪽 부분만 넓게: x 0.75~1, y 0.55~1 (꽃이 오른쪽에 있다고 가정)
+    { id: 4, label: "오른쪽 아래(꽃)", x: 0.75, y: 0.55, w: 0.25, h: 0.45 },
+  ];
+
+  const found = new Set();
+
+  function drawImages() {
     if (!imgLeft.complete || !imgRight.complete) return;
+
     ctxL.clearRect(0, 0, cvLeft.width, cvLeft.height);
     ctxR.clearRect(0, 0, cvRight.width, cvRight.height);
 
     ctxL.drawImage(imgLeft, 0, 0, cvLeft.width, cvLeft.height);
     ctxR.drawImage(imgRight, 0, 0, cvRight.width, cvRight.height);
-
-    // ✅ 표시(동그라미/사각형) 없이 "그냥 카운트만" 할 거면 아래 주석 유지
-    // 만약 찾았을 때 표시하고 싶으면 아래 drawMark를 사용하면 됨.
-    // foundBoxes.forEach(b => drawMark(ctxL, b), drawMark(ctxR, b));
   }
 
-  // ====== 2) 클릭 좌표를 0~1 비율로 변환 ======
+  // ✅ 정답 표시(반투명 박스 + 테두리)를 “양쪽 캔버스에 동일하게”
+  function drawMarkForArea(area) {
+    const x = area.x * cvRight.width;
+    const y = area.y * cvRight.height;
+    const w = area.w * cvRight.width;
+    const h = area.h * cvRight.height;
+
+    // 오른쪽
+    ctxR.save();
+    ctxR.fillStyle = "rgba(255, 60, 110, 0.18)";
+    ctxR.strokeStyle = "rgba(255, 60, 110, 0.95)";
+    ctxR.lineWidth = 5;
+    ctxR.fillRect(x, y, w, h);
+    ctxR.strokeRect(x, y, w, h);
+    ctxR.restore();
+
+    // 왼쪽에도 똑같이 표시(사용자 입장에서는 어디를 찾았는지 보기 쉬움)
+    const xL = area.x * cvLeft.width;
+    const yL = area.y * cvLeft.height;
+    const wL = area.w * cvLeft.width;
+    const hL = area.h * cvLeft.height;
+
+    ctxL.save();
+    ctxL.fillStyle = "rgba(255, 60, 110, 0.18)";
+    ctxL.strokeStyle = "rgba(255, 60, 110, 0.95)";
+    ctxL.lineWidth = 5;
+    ctxL.fillRect(xL, yL, wL, hL);
+    ctxL.strokeRect(xL, yL, wL, hL);
+    ctxL.restore();
+  }
+
+  function redrawAll() {
+    drawImages();
+    // 찾은 것들 표시 다시 그리기
+    for (const area of DIFF_AREAS) {
+      if (found.has(area.id)) drawMarkForArea(area);
+    }
+  }
+
+  // 클릭 좌표를 0~1로 변환
   function getNormPos(canvas, e) {
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;   // 0~1
-    const y = (e.clientY - rect.top) / rect.height;   // 0~1
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
     return { x, y };
   }
-
-  // ====== 3) 넓은 "정답 영역" 사각형(비율 기준) ======
-  // NOTE: x,y,w,h 는 "오른쪽 캔버스" 기준 0~1 비율 좌표
-  // 지금은 2x2 사진 그리드라고 가정하고 "대충 넓게" 잡아둠.
-  // 화면에서 조금 어긋나면 숫자만 살짝 조절하면 됨.
-  const DIFF_AREAS = [
-    // 1) 위-왼쪽(꽃색 다름) -> 오른쪽 이미지의 "위-왼쪽 사진 전체" 아무 곳
-    { id: 1, x: 0.02, y: 0.02, w: 0.48, h: 0.48 },
-
-    // 2) 위-오른쪽(햄스터라 완전 다름) -> 오른쪽 이미지의 "위-오른쪽 사진 전체" 아무 곳
-    { id: 2, x: 0.50, y: 0.02, w: 0.48, h: 0.48 },
-
-    // 3) 아래-왼쪽(목걸이 없음) -> 오른쪽 이미지에서 "아래-왼쪽 사진의 목 주변" 넓게
-    // 아래-왼쪽 사진 영역 안에서도 "목/가슴 중앙" 근처만 넓게 잡음
-    { id: 3, x: 0.12, y: 0.63, w: 0.30, h: 0.22 },
-
-    // 4) 아래-오른쪽(꽃 봉우리 사라짐) -> 오른쪽 이미지에서 "아래-오른쪽 꽃 부분" 넓게
-    { id: 4, x: 0.72, y: 0.45, w: 0.26, h: 0.50 },
-  ];
 
   function hitRect(p, r) {
     return (
@@ -413,33 +451,27 @@ document.getElementById("btnBackToMain2")?.addEventListener("click", () => showO
     );
   }
 
-  // ====== 4) 찾은 것 관리 ======
-  const found = new Set();
-
   function setFound(id) {
     if (found.has(id)) return;
     found.add(id);
-    foundCountEl.textContent = String(found.size);
 
-    // ✅ 표시 없이 카운트만 올림
-    // drawAll();  // 필요하면 다시그리기
+    foundCountEl.textContent = String(found.size);
+    redrawAll();
 
     if (found.size === DIFF_AREAS.length) {
-      // 네 코드에 openModal / popConfetti / addPoint 있다면 이걸로 처리
       if (typeof popConfetti === "function") popConfetti(200);
       if (typeof openModal === "function") openModal("🎉 완료!", "틀린그림찾기 성공! +1점");
       if (typeof addPoint === "function") addPoint("diff");
     }
   }
 
-  // ====== 5) 클릭 처리: 오른쪽 캔버스 아무 곳 클릭 -> 해당 영역이면 정답 ======
   function handleRightClick(e) {
+    // 닉네임 시작 안 했으면 막고 싶으면 여기서 체크 가능
+    // if (!currentNick || !gameStartedAt) { openModal("닉네임 먼저!", "..."); return; }
+
     const p = getNormPos(cvRight, e);
 
-    // 이미 다 찾았으면 무시
-    if (found.size >= DIFF_AREAS.length) return;
-
-    // 아직 안 찾은 영역 중 하나라도 맞으면 정답
+    // 아직 안 찾은 영역 중 하나라도 맞으면 그걸 정답 처리
     for (const area of DIFF_AREAS) {
       if (found.has(area.id)) continue;
       if (hitRect(p, area)) {
@@ -447,19 +479,17 @@ document.getElementById("btnBackToMain2")?.addEventListener("click", () => showO
         return;
       }
     }
-
-    // 영역 밖 클릭은 아무 반응 없게(원하면 모달 띄워도 됨)
-    // if (typeof openModal === "function") openModal("앗!", "다른 곳을 눌러봐요!");
+    // 영역 밖이면 아무 반응 없게
   }
 
-  // ✅ 오른쪽만 클릭 인정
+  // ✅ 오른쪽 캔버스만 클릭 인정
   cvRight.addEventListener("click", handleRightClick);
 
-  // ====== 6) 로드/리사이즈 ======
-  imgLeft.onload = drawAll;
-  imgRight.onload = drawAll;
-  window.addEventListener("resize", drawAll);
+  imgLeft.onload = redrawAll;
+  imgRight.onload = redrawAll;
+  window.addEventListener("resize", redrawAll);
 })();
+
 
 /* =========================
    게임 2~5: 4지선다 퀴즈
